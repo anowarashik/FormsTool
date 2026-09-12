@@ -1,0 +1,331 @@
+
+-----------------------------STEP 1 — Java File Open
+ORACLE FORMS JDAPI – MAXIMUM LENGTH MODIFIER
+USER MANUAL
+
+==================================================
+
+PURPOSE
+==================================================
+
+এই Tool ব্যবহার করে Oracle Forms (.fmb) files-এর নির্দিষ্ট Item-এর Maximum Length automatically update করা যাবে।
+
+Manual ভাবে প্রতিটি Oracle Form খুলে property পরিবর্তন করার প্রয়োজন হবে না।
+
+Tool একসাথে E:\TEST folder-এর সব FMB file process করবে।
+
+Operating System:
+Windows
+
+Required Java:
+JDK 8 Update 201
+
+Required Installer:
+jdk-8u201-windows-i586.exe
+
+IMPORTANT:
+32-bit / x86 JDK অবশ্যই ব্যবহার করতে হবে।
+
+JDK Installation Path:
+
+C:\Program Files (x86)\Java\jdk1.8.0_201
+
+Oracle Forms:
+Oracle Forms 11g
+
+Required JDAPI JAR:
+
+D:\Oracle\Middleware\Oracle_FRHome1\jlib\frmjdapi.jar
+
+Required Native DLL:
+
+D:\Oracle\Middleware\Oracle_FRHome1\BIN\frmjapi.dll
+
+
+
+-----CMD-----------------------------
+notepad E:\FormsTool\FormsWidthTool.java
+
+------------------------------------------==============================
+
+-------------------STEP 2 — পুরোনো Code Delete
+-------------------------------------------------------------==================================
+
+
+Notepad-এ:
+
+Ctrl + A
+
+তারপর:
+
+Delete
+-------------------------------------------------
+STEP 3 — এই Full Java Code Paste 
+
+---------------------------==================================================================
+------------------============================================================================
+import oracle.forms.jdapi.*;
+import java.io.File;
+import java.io.FilenameFilter;
+
+public class FormsWidthTool {
+
+    private static final String FMB_FOLDER = "E:\\TEST";
+
+    // ALL TARGET ITEMS: Minimum Maximum Length = 30
+    private static final int REQUIRED_LENGTH = 30;
+
+    public static void main(String[] args) {
+
+        File folder = new File(FMB_FOLDER);
+
+        if (!folder.exists() || !folder.isDirectory()) {
+            System.out.println( "ERROR: Folder not found: " + FMB_FOLDER);
+            return;
+                                                        }
+
+        File[] fmbFiles = folder.listFiles(new FilenameFilter() {
+            public boolean accept(File dir, String name) {
+                return name.toLowerCase().endsWith(".fmb");
+                                                        }
+                                                    });
+
+        if (fmbFiles == null || fmbFiles.length == 0) {
+                                                System.out.println("No FMB files found.");
+
+                                                return;
+                            }
+
+        System.out.println("==========================================");
+        System.out.println(" Oracle Forms Maximum Length Modifier");
+        System.out.println(" ALL TARGET ITEMS = 30");
+        System.out.println("==========================================");
+        System.out.println("Folder : " + FMB_FOLDER);
+        System.out.println("Files  : " + fmbFiles.length);
+        System.out.println();
+
+        int totalFiles = 0;
+        int modifiedFiles = 0;
+        int unchangedFiles = 0;
+        int errorFiles = 0;
+        int totalItems = 0;
+
+        for (File file : fmbFiles) {
+
+            totalFiles++;
+
+            System.out.println("------------------------------------------");
+            System.out.println(
+                "File " + totalFiles + " of " + fmbFiles.length
+            );
+
+            System.out.println("Opening FMB:");
+            System.out.println(file.getAbsolutePath());
+            System.out.println();
+
+            boolean modified = false;
+            int itemCount = 0;
+
+            try {
+
+                String fmbFile = file.getAbsolutePath();
+
+                // Open FMB
+                FormModule form = FormModule.open(fmbFile);
+
+                System.out.println("FMB Open Successful!");
+                System.out.println(
+                    "Form Name: " + form.getName()
+                );
+
+                System.out.println();
+
+                // Get Blocks
+                JdapiIterator blocks = form.getBlocks();
+
+                while (blocks.hasNext()) {
+
+                    Block block = (Block) blocks.next();
+
+                    // Get Items
+                    JdapiIterator items = block.getItems();
+
+                    while (items.hasNext()) {
+
+                        Item item = (Item) items.next();
+
+                        String itemName = item.getName();
+
+                        if (itemName == null) {
+                            continue;
+                        }
+
+                        // Check target item
+                        if (isTargetItem(itemName)) {
+
+                            int oldLength = item.getMaximumLength();
+                            /*
+                             * ALL TARGET ITEMS
+                             * Minimum Maximum Length = 30
+                             */
+                            int newLength =  Math.max(oldLength,REQUIRED_LENGTH);
+
+                            if (oldLength < REQUIRED_LENGTH) {
+
+                                System.out.println("Block: "+ block.getName());
+
+                                System.out.println(itemName + " : Maximum Length "+ oldLength+ " -> "+ newLength);
+
+                                // Set Maximum Length = 30
+                                item.setMaximumLength(newLength);
+
+                                modified = true;
+
+                                itemCount++;
+
+                                totalItems++;
+
+                            } else {
+                                System.out.println( "Block: "+ block.getName());
+
+                                System.out.println(itemName+ " : Maximum Length "+ oldLength + " -> No change");
+                            }
+                        }
+                    }
+                }
+
+                // Save if modified
+                if (modified) {
+
+                    form.save(fmbFile);
+
+                    modifiedFiles++;
+
+                    System.out.println();
+
+                    System.out.println("SAVED SUCCESSFULLY: "+ fmbFile);
+
+                    System.out.println("Items modified: "+ itemCount);
+
+                } else {
+
+                    unchangedFiles++;
+
+                    System.out.println();
+
+                    System.out.println("No Maximum Length change required.");
+                }
+
+            } catch (Exception e) {
+
+                errorFiles++;
+
+                System.out.println();
+
+                System.out.println("ERROR: " + file.getName());
+
+                System.out.println("Reason: " + e.getMessage());
+
+                e.printStackTrace();
+
+                System.out.println();
+
+                System.out.println("Continuing next file...");
+            }
+            System.out.println();
+        }
+
+        // Final Summary
+        System.out.println("==========================================");
+        System.out.println("              FINAL SUMMARY");
+        System.out.println("==========================================");
+        System.out.println("Required Maximum Length : "+ REQUIRED_LENGTH);
+        System.out.println("Total files: "+ totalFiles);
+        System.out.println("Modified files          : "+ modifiedFiles);
+        System.out.println("Unchanged files         : "+ unchangedFiles);
+        System.out.println("Error files             : "+ errorFiles);
+        System.out.println("Items changed           : " + totalItems);
+        System.out.println("==========================================");
+        System.out.println("PROCESS COMPLETED");
+        System.out.println("==========================================");
+    }
+    /*
+     * Target Items
+     *
+     * ALL target items will have
+     * Minimum Maximum Length = 30
+     */
+    private static boolean isTargetItem(String itemName) {
+
+        return itemName.equalsIgnoreCase("FF_CODE")
+
+            || itemName.equalsIgnoreCase("MPO_CODE")
+
+            || itemName.equalsIgnoreCase("FM_CODE")
+
+            || itemName.equalsIgnoreCase("RM_CODE")
+
+            || itemName.equalsIgnoreCase("AM_CODE")
+
+            || itemName.equalsIgnoreCase("SM_CODE")
+
+            || itemName.equalsIgnoreCase("P_CODE")
+
+            || itemName.equalsIgnoreCase("BRAND_CODE")
+
+            || itemName.equalsIgnoreCase("P_N_CODE")
+
+            || itemName.equalsIgnoreCase("ITEM_CODE")
+
+            || itemName.equalsIgnoreCase("PPM_CODE")
+
+            || itemName.equalsIgnoreCase("RAW_CODE");
+    }
+}
+
+
+
+-----STEP 4 — Java File Save-------------------
+---------------------তারপর Notepad বন্ধ করুন।
+
+STEP 5 — Java Folder-এ যান
+
+CMD:
+
+cd /d E:\FormsTool
+
+Check করুন:
+
+dir FormsWidthTool.java
+
+এখানে FormsWidthTool.java দেখা উচিত।
+
+STEP 6 — পুরোনো CLASS Delete
+del FormsWidthTool.class
+
+যদি বলে:
+
+Could Not Find
+
+তাহলেও সমস্যা নেই।
+
+STEP 7 — Java Compile
+
+এই command:
+
+"C:\Program Files (x86)\Java\jdk1.8.0_201\bin\javac.exe" -cp "D:\Oracle\Middleware\Oracle_FRHome1\jlib\frmjdapi.jar" FormsWidthTool.java
+
+
+কোনো error না এলে
+
+Compile successful. ✅
+
+Check:
+
+dir FormsWidthTool.class
+
+STEP 8 — সব FMB Modify করার জন্য Run
+
+"C:\Program Files (x86)\Java\jdk1.8.0_201\bin\java.exe" -cp "D:\Oracle\Middleware\Oracle_FRHome1\jlib\frmjdapi.jar;E:\FormsTool" FormsWidthTool
+
+STEP 9 — Output Check
